@@ -1,0 +1,687 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Post & Dose — Life Sciences LinkedIn Studio</title>
+<link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=Inter:wght@300;400;500;600&display=swap" rel="stylesheet">
+<script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+<script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+<script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+<style>
+*{box-sizing:border-box;margin:0;padding:0;}
+body{background:#06090a;font-family:'Inter',system-ui,sans-serif;color:#d4e0cc;}
+@keyframes spin{to{transform:rotate(360deg)}}
+@keyframes fadeUp{from{opacity:0;transform:translateY(12px)}to{opacity:1;transform:translateY(0)}}
+@keyframes glow{0%,100%{opacity:0.4}50%{opacity:1}}
+@keyframes orbit{from{transform:rotate(0deg) translateX(14px) rotate(0deg)}to{transform:rotate(360deg) translateX(14px) rotate(-360deg)}}
+::-webkit-scrollbar{width:4px;}
+::-webkit-scrollbar-track{background:#06090a;}
+::-webkit-scrollbar-thumb{background:#1a2a1a;border-radius:2px;}
+input,textarea,button{font-family:'Inter',system-ui,sans-serif;}
+</style>
+</head>
+<body>
+<div id="root"></div>
+<script type="text/babel">
+const {useState} = React;
+
+// ─────────────────────────────────────────────────────────────
+//  REPLACE WITH YOUR FREE GEMINI KEY — aistudio.google.com
+// ─────────────────────────────────────────────────────────────
+const GEMINI_KEY = "PASTE_YOUR_GEMINI_API_KEY_HERE";
+
+// ─── INDUSTRIES ───────────────────────────────────────────────
+const INDUSTRIES = [
+  {
+    id:"pharma", label:"Pharmaceutical", icon:"💊", color:"#4a9e6e", tag:"Rx & OTC",
+    companies:"AbbVie, Novartis, Pfizer, Roche, Johnson and Johnson, Eli Lilly, Sanofi, and Merck",
+    vendors:"Veeva, IQVIA OCE, Salesforce Health Cloud, Aktana, ZS Associates, Komodo Health",
+    realities:["field force call planning","digital shelf performance","CRM adoption","MLR review cycles","launch readiness","KOL engagement","patient adherence","payer access","omnichannel sequencing","real world evidence","territory targeting","brand analytics","copay utilization","rep training","forecasting accuracy"],
+    persona:"You are a senior pharmaceutical consultant with 20+ years advising top companies including AbbVie, Novartis, Pfizer, Roche, Johnson and Johnson, Eli Lilly, Sanofi, and Merck. You deeply understand commercial operations, medical affairs, field force effectiveness, HCP engagement, payer access, brand launches, omnichannel strategy, and regulatory compliance."
+  },
+  {
+    id:"medtech", label:"MedTech", icon:"🩺", color:"#5b8fd4", tag:"Devices & Diagnostics",
+    companies:"Medtronic, J&J MedTech, Stryker, Boston Scientific, Abbott, Becton Dickinson, and Zimmer Biomet",
+    vendors:"Salesforce Health Cloud, Veeva Vault, IQVIA, Stryker Analytics, Medtronic systems",
+    realities:["surgical adoption","hospital procurement","surgeon training","post-market surveillance","value-based care","health economics","procedure volume","hospital network access","clinical evidence","device reimbursement","capital equipment sales","service contracts"],
+    persona:"You are a senior MedTech consultant with 20+ years advising leading medical device and diagnostics companies including Medtronic, J&J MedTech, Stryker, Boston Scientific, and Abbott. You deeply understand surgical adoption, hospital procurement cycles, value-based care evidence, surgeon training and proctoring, post-market surveillance, and health economics."
+  },
+  {
+    id:"biotech", label:"Biotech", icon:"🧬", color:"#9b6dd4", tag:"Innovation & Pipeline",
+    companies:"Genentech, Amgen, Biogen, Moderna, BioNTech, Regeneron, and Gilead",
+    vendors:"Veeva Vault Clinical, Medidata, IQVIA, Palantir for life sciences, AWS HealthLake",
+    realities:["pipeline communication","clinical trial recruitment","FDA regulatory strategy","investor relations","rare disease patient finding","platform technology","biologics manufacturing","biosimilar competition","cell and gene therapy access","early-stage commercialization","licensing deals"],
+    persona:"You are a senior biotech consultant with 20+ years advising leading companies including Genentech, Amgen, Biogen, Moderna, BioNTech, Regeneron, and Gilead. You deeply understand pipeline communication, platform technology storytelling, clinical trial design, FDA regulatory pathways, investor relations, and early-stage to launch transitions."
+  },
+  {
+    id:"healthit", label:"Digital Health", icon:"💻", color:"#d4a843", tag:"Health IT & AI",
+    companies:"Epic, Oracle Health, Veeva Systems, IQVIA Technologies, Salesforce Health Cloud, Google Health, and Microsoft Health",
+    vendors:"Epic, Oracle Health, Salesforce Health Cloud, Microsoft Azure Health, Google Cloud Healthcare API, AWS HealthLake",
+    realities:["EHR integration","clinical workflow adoption","HIPAA compliance","AI model validation","ROI demonstration","digital therapeutics","remote patient monitoring","population health analytics","care gap closure","patient engagement","payer-provider data exchange"],
+    persona:"You are a senior digital health consultant with 20+ years advising leading companies including Epic, Oracle Health, Veeva Systems, IQVIA Technologies, Salesforce Health Cloud, Google Health, and Microsoft Health. You deeply understand EHR integration, clinical workflow adoption, HIPAA compliance, AI model validation, and value demonstration in health IT."
+  }
+];
+
+// ─── POST STRUCTURES ──────────────────────────────────────────
+const STYLES = [
+  {id:"auto",     label:"Auto-detect",   desc:"AI reads your topic and picks the best structure",   tag:"Recommended", color:"#4a9e6e"},
+  {id:"insight",  label:"Insight",       desc:"Hook + coined phrase + contrarian truth",             tag:"Most viral",   color:"#5b8fd4"},
+  {id:"announce", label:"Announcement",  desc:"Direct + warm + industry impact",                     tag:"Milestones",   color:"#9b6dd4"},
+  {id:"story",    label:"Narrative",     desc:"Specific scene + story arc + one lesson",             tag:"Most human",   color:"#d4a843"},
+  {id:"blueprint",label:"Blueprint",     desc:"Numbered framework that teaches something concrete",   tag:"Educational",  color:"#d46a4a"},
+];
+
+// ─── TOPIC SUGGESTIONS ────────────────────────────────────────
+const SUGGESTIONS = {
+  pharma:{
+    auto:["CRM as a reporting system vs a decision system 🤔","Why pharma field force is data-rich but insight-poor 📊","Digital shelf gaps costing OTC brands revenue 🛒","AI transforming commercial operations in pharma 🤖"],
+    insight:["The CRM nobody opens before a sales call 😬","Why most launch readiness scores are theatre not truth 🎭","Digital shelf - the metric nobody owns in pharma 📦","HCP engagement scores that move no prescriptions 💊"],
+    announce:["New AI partnership for commercial excellence ✨","Joining the Agentforce Life Sciences ecosystem 🚀","Launching next-generation omnichannel capabilities 📡","New real world evidence platform going live 🔬"],
+    story:["The QBR that changed how I think about field data 💡","A launch failure that taught me everything 🙏","The rep who outperformed our AI recommendations 🏆","What a failed pilot taught us about change 🔄"],
+    blueprint:["5 steps from CRM compliance to CRM intelligence 📋","How to build a digital shelf monitoring strategy 📱","Framework for AI adoption in pharma commercial 🛠️","The omnichannel sequencing playbook for HCPs 🗺️"]
+  },
+  medtech:{
+    auto:["Why MedTech launches fail at surgeon adoption 🔪","Value-based care evidence - the gap nobody fills 📉","Hospital procurement vs clinical evidence disconnect 🏥","AI in post-market surveillance 🔍"],
+    insight:["The capital equipment sale nobody prepares for 💰","Post-market surveillance data nobody acts on 📋","Hospital procurement decisions that ignore evidence 🤷","Why surgeon training is MedTech's biggest blind spot 👁️"],
+    announce:["New value-based care partnership with a health system 🤝","Launching AI-powered surgical outcome analytics 🧠","Joining a hospital network excellence program 🏆","New post-market surveillance AI platform going live 🚀"],
+    story:["The surgeon who taught me what adoption really means 👨‍⚕️","A procedure volume drop that nobody predicted 📉","The procurement committee that changed our strategy 💡","What a hospital network rejection taught us 🙏"],
+    blueprint:["5 steps to accelerate surgical adoption 🔪","How to build a value-based care evidence package 📊","Framework for hospital network contracting 🏥","The surgeon training and proctoring playbook 📋"]
+  },
+  biotech:{
+    auto:["Why biotech pipelines fail at storytelling not science 🔬","Clinical trial recruitment - the crisis nobody talks about 😰","Biosimilar competitive response strategy 💊","Cell and gene therapy access challenges 🧬"],
+    insight:["The FDA pathway nobody optimizes early enough ⏰","Investor relations built on hope not evidence 📈","Why rare disease patients can't find our trials 🔍","Pipeline communication that loses non-scientists 🤯"],
+    announce:["Phase 3 trial milestone achievement 🎉","New platform technology licensing deal 🤝","Rare disease patient community partnership ❤️","New manufacturing scale-up capability live 🏭"],
+    story:["The investor call that forced us to simplify our science 💡","A rare disease patient who changed our strategy ❤️","The regulatory meeting that reframed our timeline ⏱️","What a biosimilar launch taught us about differentiation 🧬"],
+    blueprint:["5 steps to communicate pipeline value to non-scientists 🎯","How to build a rare disease patient finding strategy 🔍","Framework for early FDA engagement ⚖️","The clinical trial recruitment acceleration playbook 📋"]
+  },
+  healthit:{
+    auto:["Why health IT implementations fail at workflow not tech 💻","AI model validation in clinical settings - who is doing it right? 🤖","EHR integration failure rates nobody publishes 😬","Digital therapeutics adoption gap 📱"],
+    insight:["The EHR integration that took 18 months and changed nothing 😤","ROI in health IT - the metric everyone fakes 💰","AI in clinical settings without proper validation 🚨","Why HIPAA compliance is killing health AI innovation 🔒"],
+    announce:["New EHR integration partnership going live 🚀","Launching AI-powered clinical decision support 🧠","New HIPAA-compliant data platform 🔐","Joining a digital health accelerator program ✨"],
+    story:["The clinician who refused to use our AI tool 😅","An EHR integration that taught us everything 💡","The HIPAA audit that changed our architecture 🔄","What a failed digital therapeutics pilot taught us 🙏"],
+    blueprint:["5 steps to successful EHR integration 🔗","How to validate AI models for clinical use ✅","Framework for digital therapeutics adoption 📱","The population health analytics playbook 📊"]
+  }
+};
+
+// ─── PROMPT BUILDER (XML / Universal Meta-Prompt structure) ───
+function buildPrompt(industryId, styleId) {
+  const ind = INDUSTRIES.find(i=>i.id===industryId)||INDUSTRIES[0];
+  const styleName = STYLES.find(s=>s.id===styleId)?.label||"Auto-detect";
+  return `<context>
+${ind.persona}
+You are also a high-end content strategist whose LinkedIn posts are read, shared, and screenshotted by C-suite leaders across life sciences. Your writing sounds like a smart human at a dinner table - never like a McKinsey deck.
+</context>
+
+<thinking_instructions>
+Before writing a single word of the post, silently complete this internal planning:
+1. What is the single most important insight or tension in this topic?
+2. Which opening archetype fits: quiet observation (specific number), uncomfortable admission (something that failed), or counter-narrative (calmly challenging consensus)?
+3. What COINED PHRASE could I invent that names something ${ind.label} people experience every day but have never seen labelled precisely? (like "data taxidermy" or "compliance theatre")
+4. What specific micro-moment makes this feel witnessed not invented? Name the day, time, and context.
+5. Which ${ind.label} operational reality grounds this in real domain expertise?
+6. Does my draft pass the CDO screenshot test - would a C-suite leader forward this?
+Only after completing this thinking should you write the post.
+</thinking_instructions>
+
+<task_steps>
+1. Detect or apply the post structure: ${styleId==="auto"?"Auto-detect based on topic content":styleName}
+2. Write the opening using ONE archetype - NEVER a stat, definition, or rhetorical question as line 1
+3. Build the narrative using specific micro-moments with day and time named precisely
+4. For Insight and Narrative: invent ONE coined phrase that reveals in a short punchy sentence
+5. Add 1-2 directional data points in the MIDDLE only (never opening)
+6. Close with the appropriate ending for the structure
+7. Place 3-5 emojis at natural section breaks - emojis are CRITICAL for LinkedIn reach and engagement
+8. Add relevant hashtags
+9. Run self-check before outputting
+</task_steps>
+
+<examples>
+STRONG INSIGHT example (notice coined phrase reveal, rhythm, emojis):
+"Most pharma teams don't have a CRM problem. They have a 'CRM as a glorified Excel sheet' problem. 📊
+I watched a brilliant rep spend 45 minutes last Tuesday updating call notes nobody will read, logging samples nobody will analyze, and ticking boxes nobody will action.
+That's not CRM. That's data taxidermy. 🦌
+[data point] [pull-quote] [contrarian truth] [two questions] [hashtags]"
+
+STRONG ANNOUNCEMENT example:
+"[Company] is proud to partner with [Partner] on [specific initiative]. ✨
+The industry is shifting from [old state] to [new state].
+Together we are [concrete contribution] - not just [generic claim], but [specific differentiator]. 🙌
+[forward vision sentence]
+[hashtags]"
+</examples>
+
+<constraints>
+BANNED: unlock value, paradigm shift, leverage synergies, game-changer, needle-mover, north star, in today's fast-paced world, at the intersection of
+NO: special characters like ellipsis or curly quotes - plain hyphens only
+NO: fabricated numbers - use "research suggests" or "industry data indicates"
+NO: opening with statistics, definitions, or questions
+EMOJIS: 3-5 emojis are CRITICAL and NON-NEGOTIABLE - place at natural section breaks for LinkedIn algorithm reach
+OUTPUT: ONLY the post - no intro, no "Here is your post", no explanation after
+LENGTH: 180-260 words optimal for LinkedIn dwell time
+If unsure about a specific fact - use directional language rather than guessing
+</constraints>
+
+<output_format>
+- ONLY the LinkedIn post, ready to copy and paste
+- Markdown: **bold** key phrases, bullet points only for genuine lists
+- Emojis: 3-5 placed at natural breaks - these are mandatory for LinkedIn engagement
+- End with relevant niche hashtags on the final line
+- NEVER include text before or after the post itself
+</output_format>
+
+OPERATIONAL GROUNDING: Reference at least one ${ind.label} operational reality from: ${ind.realities.join(", ")}.
+VENDORS: Name real vendors where relevant: ${ind.vendors}. Never fabricate numbers.
+
+ACTION: Now write a compelling, screenshot-worthy LinkedIn post about the topic provided. Make it sound like it was written by a senior ${ind.label} leader at 11pm after a brutal QBR - honest, specific, and impossible to ignore. The coined phrase is the thing people will steal and use. The emojis are what make them stop scrolling. Write it. ✍️`;
+}
+
+const INTEL_PROMPT = `Analyze this LinkedIn post and return ONLY valid JSON. No markdown. No backticks. Raw JSON only.
+{"style":"Insight or Announcement or Narrative or Blueprint","hook_score":7,"hook_note":"one sentence why it works or not","engagement":"Low or Medium or High","depth_score":8,"strongest_line":"the single best line from the post","best_time":"best day and time for life sciences LinkedIn audience","one_fix":"the single most impactful change to improve this post"}`;
+
+// ─── AI NEURAL NETWORK LOGO ───────────────────────────────────
+function Logo({size=32}) {
+  const s = size;
+  return React.createElement("svg",{width:s,height:s,viewBox:"0 0 44 44",fill:"none",xmlns:"http://www.w3.org/2000/svg"},
+    // Outer ring subtle
+    React.createElement("circle",{cx:"22",cy:"22",r:"20",stroke:"url(#lg1)",strokeWidth:"1",opacity:"0.25"}),
+    // Neural network connections
+    React.createElement("defs",null,
+      React.createElement("linearGradient",{id:"lg1",x1:"0",y1:"0",x2:"44",y2:"44",gradientUnits:"userSpaceOnUse"},
+        React.createElement("stop",{offset:"0%",stopColor:"#00d4ff"}),
+        React.createElement("stop",{offset:"100%",stopColor:"#4a9e6e"})
+      ),
+      React.createElement("linearGradient",{id:"lg2",x1:"0",y1:"0",x2:"44",y2:"44",gradientUnits:"userSpaceOnUse"},
+        React.createElement("stop",{offset:"0%",stopColor:"#4a9e6e"}),
+        React.createElement("stop",{offset:"100%",stopColor:"#d4a843"})
+      )
+    ),
+    // Connection lines between nodes
+    React.createElement("line",{x1:"22",y1:"6",x2:"36",y2:"18",stroke:"#00d4ff",strokeWidth:"1",opacity:"0.4"}),
+    React.createElement("line",{x1:"22",y1:"6",x2:"8",y2:"18",stroke:"#00d4ff",strokeWidth:"1",opacity:"0.4"}),
+    React.createElement("line",{x1:"36",y1:"18",x2:"36",y2:"30",stroke:"#4a9e6e",strokeWidth:"1",opacity:"0.4"}),
+    React.createElement("line",{x1:"8",y1:"18",x2:"8",y2:"30",stroke:"#4a9e6e",strokeWidth:"1",opacity:"0.4"}),
+    React.createElement("line",{x1:"36",y1:"30",x2:"22",y2:"38",stroke:"#d4a843",strokeWidth:"1",opacity:"0.4"}),
+    React.createElement("line",{x1:"8",y1:"30",x2:"22",y2:"38",stroke:"#d4a843",strokeWidth:"1",opacity:"0.4"}),
+    // Cross connections
+    React.createElement("line",{x1:"8",y1:"18",x2:"36",y2:"18",stroke:"#00d4ff",strokeWidth:"0.75",opacity:"0.25"}),
+    React.createElement("line",{x1:"8",y1:"30",x2:"36",y2:"30",stroke:"#4a9e6e",strokeWidth:"0.75",opacity:"0.25"}),
+    React.createElement("line",{x1:"22",y1:"6",x2:"22",y2:"38",stroke:"url(#lg2)",strokeWidth:"0.75",opacity:"0.2"}),
+    // Center connections to core
+    React.createElement("line",{x1:"22",y1:"6",x2:"22",y2:"22",stroke:"#00d4ff",strokeWidth:"1",opacity:"0.3"}),
+    React.createElement("line",{x1:"36",y1:"18",x2:"22",y2:"22",stroke:"#00d4ff",strokeWidth:"1",opacity:"0.3"}),
+    React.createElement("line",{x1:"8",y1:"18",x2:"22",y2:"22",stroke:"#4a9e6e",strokeWidth:"1",opacity:"0.3"}),
+    React.createElement("line",{x1:"36",y1:"30",x2:"22",y2:"22",stroke:"#4a9e6e",strokeWidth:"1",opacity:"0.3"}),
+    React.createElement("line",{x1:"8",y1:"30",x2:"22",y2:"22",stroke:"#d4a843",strokeWidth:"1",opacity:"0.3"}),
+    React.createElement("line",{x1:"22",y1:"38",x2:"22",y2:"22",stroke:"#d4a843",strokeWidth:"1",opacity:"0.3"}),
+    // Outer nodes
+    React.createElement("circle",{cx:"22",cy:"6",r:"2.5",fill:"#00d4ff",opacity:"0.9"}),
+    React.createElement("circle",{cx:"36",cy:"18",r:"2",fill:"#00d4ff",opacity:"0.7"}),
+    React.createElement("circle",{cx:"8",cy:"18",r:"2",fill:"#4a9e6e",opacity:"0.7"}),
+    React.createElement("circle",{cx:"36",cy:"30",r:"2",fill:"#4a9e6e",opacity:"0.7"}),
+    React.createElement("circle",{cx:"8",cy:"30",r:"2",fill:"#d4a843",opacity:"0.7"}),
+    React.createElement("circle",{cx:"22",cy:"38",r:"2.5",fill:"#d4a843",opacity:"0.9"}),
+    // Core node (AI brain center)
+    React.createElement("circle",{cx:"22",cy:"22",r:"5",fill:"#06090a",stroke:"url(#lg1)",strokeWidth:"1.5"}),
+    React.createElement("circle",{cx:"22",cy:"22",r:"2.5",fill:"url(#lg1)",opacity:"0.9"})
+  );
+}
+
+// ─── MARKDOWN RENDERER ────────────────────────────────────────
+function MD({text}) {
+  if(!text) return null;
+  return React.createElement("div",{style:{fontSize:"14px",lineHeight:"1.9",color:"#c8d8c0"}},
+    text.split("\n").map((line,i)=>{
+      if(!line.trim()) return React.createElement("div",{key:i,style:{height:"0.5em"}});
+      const isBullet=/^[\s]*[-*]\s/.test(line)||/^[\s]*\d+\.\s/.test(line);
+      const isHash=line.trim().startsWith("#");
+      const render=t=>t.replace(/\*\*(.*?)\*\*/g,(_,b)=>`<strong style="color:#e8f0e0;font-weight:600">${b}</strong>`);
+      if(isHash) return React.createElement("div",{key:i,style:{marginTop:"6px"},dangerouslySetInnerHTML:{__html:`<span style="color:#4a9e6e;font-size:13px">${render(line)}</span>`}});
+      if(isBullet){
+        const c=line.replace(/^[\s]*[-*]\s/,"").replace(/^[\s]*\d+\.\s/,"");
+        return React.createElement("div",{key:i,style:{display:"flex",gap:"10px",marginBottom:"5px",paddingLeft:"4px"}},
+          React.createElement("span",{style:{color:"#4a9e6e",flexShrink:0}},"-"),
+          React.createElement("span",{dangerouslySetInnerHTML:{__html:render(c)}}));
+      }
+      return React.createElement("div",{key:i,dangerouslySetInnerHTML:{__html:render(line)}});
+    })
+  );
+}
+
+function ScoreBar({score}) {
+  const c=score>=8?"#4a9e6e":score>=6?"#d4a843":"#d46a4a";
+  return React.createElement("div",null,
+    React.createElement("div",{style:{display:"flex",justifyContent:"space-between",marginBottom:"5px"}},
+      React.createElement("span",{style:{fontSize:"22px",fontWeight:"300",color:"#e8f0e0",letterSpacing:"-0.02em"}},score),
+      React.createElement("span",{style:{fontSize:"11px",color:"#3a5a30",alignSelf:"flex-end",marginBottom:"2px"}},"/10")
+    ),
+    React.createElement("div",{style:{background:"#0d160b",borderRadius:"3px",height:"3px"}},
+      React.createElement("div",{style:{width:`${score*10}%`,height:"100%",background:c,borderRadius:"3px",transition:"width 1s ease"}})
+    )
+  );
+}
+
+// ─── RATING WIDGET ────────────────────────────────────────────
+function RatingWidget({rating,hoverR,setHoverR,setRating,label}) {
+  return React.createElement("div",{style:{background:"#060e06",border:"1px solid #0f1a0f",borderRadius:"10px",padding:"1rem",marginBottom:"10px"}},
+    React.createElement("div",{style:{fontSize:"11px",letterSpacing:"0.08em",textTransform:"uppercase",color:"#2a4020",display:"block",marginBottom:"8px"}},label||"Rate this post"),
+    React.createElement("div",{style:{display:"flex",gap:"5px",flexWrap:"wrap",alignItems:"center"}},
+      [1,2,3,4,5,6,7,8,9,10].map(n=>
+        React.createElement("button",{key:n,
+          onMouseEnter:()=>setHoverR(n),onMouseLeave:()=>setHoverR(0),onClick:()=>setRating(n),
+          style:{width:"30px",height:"30px",borderRadius:"6px",border:"1px solid",fontSize:"12px",cursor:"pointer",transition:"all 0.1s",
+            background:(hoverR||rating)>=n?"rgba(74,158,110,0.15)":"transparent",
+            borderColor:(hoverR||rating)>=n?"#4a9e6e":"#0f1a0f",
+            color:(hoverR||rating)>=n?"#8ad8a8":"#1a2a18"}},n)
+      ),
+      rating>0&&React.createElement("span",{style:{fontSize:"13px",color:"#4a9e6e",marginLeft:"6px"}},
+        rating>=8?"Strong post 🔥":rating>=6?"Good 👍":"Needs work 🔧")
+    )
+  );
+}
+
+// ─── MAIN APP ─────────────────────────────────────────────────
+function App() {
+  const [step,     setStep]     = useState("welcome");
+  const [industry, setIndustry] = useState("pharma");
+  const [style,    setStyle]    = useState("auto");
+  const [topic,    setTopic]    = useState("");
+  const [audience, setAudience] = useState("");
+  const [post,     setPost]     = useState("");
+  const [feedback, setFeedback] = useState("");
+  const [intel,    setIntel]    = useState(null);
+  const [loadMsg,  setLoadMsg]  = useState("");
+  const [copiedT,  setCopiedT]  = useState(false);
+  const [copiedB,  setCopiedB]  = useState(false);
+  const [refining, setRefining] = useState(false);
+  const [rating,   setRating]   = useState(0);
+  const [hoverR,   setHoverR]   = useState(0);
+  const [history,  setHistory]  = useState([]);
+  const [adminClicks, setAdminClicks] = useState(0);
+  const [showAdmin, setShowAdmin] = useState(false);
+
+  const notConfigured = GEMINI_KEY==="PASTE_YOUR_GEMINI_API_KEY_HERE";
+  const curInd = INDUSTRIES.find(i=>i.id===industry)||INDUSTRIES[0];
+  const suggestions = (SUGGESTIONS[industry]||{})[style]||(SUGGESTIONS[industry]||{}).auto||[];
+
+  // ─── SESSION LOGGING ───────────────────────────────────────
+  function logSession(t,s,ind,r) {
+    try {
+      const sessions = JSON.parse(localStorage.getItem("pd_sessions")||"[]");
+      sessions.push({topic:t.substring(0,100),style:s,industry:ind,rating:r,time:new Date().toISOString()});
+      localStorage.setItem("pd_sessions",JSON.stringify(sessions.slice(-200)));
+    } catch {}
+  }
+
+  function loadSessions() {
+    try { return JSON.parse(localStorage.getItem("pd_sessions")||"[]"); }
+    catch { return []; }
+  }
+
+  // ─── API CALL ──────────────────────────────────────────────
+  async function callGemini(userMsg, sysOverride) {
+    const sys = sysOverride||buildPrompt(industry,style);
+    const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${GEMINI_KEY}`;
+    const body = {
+      systemInstruction:{parts:[{text:sys}]},
+      contents:[{role:"user",parts:[{text:userMsg}]}],
+      generationConfig:{maxOutputTokens:1400,temperature:0.88}
+    };
+    const r = await fetch(url,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(body)});
+    if(!r.ok) throw new Error("API error "+r.status);
+    const d = await r.json();
+    return d.candidates?.[0]?.content?.parts?.[0]?.text||"";
+  }
+
+  async function generate() {
+    if(!topic.trim()||notConfigured) return;
+    setStep("gen"); setIntel(null); setRating(0);
+    try {
+      setLoadMsg("🧠 Thinking through the best angle...");
+      const styleLabel = STYLES.find(s=>s.id===style)?.label||"Auto-detect";
+      const msg = `Write a LinkedIn post about: ${topic}${audience?`\nTarget audience: ${audience}`:""}\nPost style: ${styleLabel}`;
+      const result = await callGemini(msg);
+      setPost(result);
+      setHistory([{role:"user",content:msg},{role:"assistant",content:result}]);
+      setLoadMsg("⚡ Running post intelligence...");
+      try {
+        const ir = await callGemini(`Analyze this LinkedIn post:\n\n${result}`,INTEL_PROMPT);
+        setIntel(JSON.parse(ir.replace(/```json|```/g,"").trim()));
+      } catch {}
+      logSession(topic,styleLabel,industry,0);
+      setStep("result");
+    } catch {
+      setPost("Something went wrong. Please check your API key and try again.");
+      setIntel(null); setStep("result");
+    }
+  }
+
+  async function refine() {
+    if(!feedback.trim()||refining) return;
+    setRefining(true); setIntel(null);
+    try {
+      const histText = history.map(h=>`${h.role==="user"?"User":"Assistant"}: ${h.content}`).join("\n\n");
+      const result = await callGemini(`${histText}\n\nUser: Refine based on this feedback: ${feedback}`);
+      setPost(result);
+      setHistory([...history,{role:"user",content:`Refine: ${feedback}`},{role:"assistant",content:result}]);
+      setFeedback("");
+      try {
+        const ir = await callGemini(`Analyze:\n\n${result}`,INTEL_PROMPT);
+        setIntel(JSON.parse(ir.replace(/```json|```/g,"").trim()));
+      } catch {}
+    } catch {}
+    setRefining(false);
+  }
+
+  function ratePost(r) {
+    setRating(r);
+    logSession(topic,STYLES.find(s=>s.id===style)?.label||"auto",industry,r);
+  }
+
+  function copy(w) {
+    navigator.clipboard.writeText(post);
+    if(w==="t"){setCopiedT(true);setTimeout(()=>setCopiedT(false),2000);}
+    else{setCopiedB(true);setTimeout(()=>setCopiedB(false),2000);}
+  }
+
+  function reset(){setStep("welcome");setStyle("auto");setTopic("");setAudience("");setPost("");setFeedback("");setHistory([]);setIntel(null);setRating(0);}
+
+  function handleVersionClick(){
+    const n=adminClicks+1; setAdminClicks(n);
+    if(n>=5){setShowAdmin(true);setAdminClicks(0);}
+  }
+
+  // ─── STYLES ────────────────────────────────────────────────
+  const S = {
+    page:{minHeight:"100vh",background:"#06090a",display:"flex",flexDirection:"column",alignItems:"center",padding:"0 1rem 3rem"},
+    header:{width:"100%",maxWidth:"700px",display:"flex",alignItems:"center",justifyContent:"space-between",padding:"1.5rem 0",borderBottom:"1px solid #0d1a0d",marginBottom:"2rem"},
+    card:{width:"100%",maxWidth:"700px",background:"#0a120a",border:"1px solid #152015",borderRadius:"16px",padding:"2rem 2.25rem",animation:"fadeUp 0.3s ease"},
+    h1:{fontFamily:"'DM Serif Display',serif",fontSize:"30px",fontWeight:"400",color:"#e8f0e0",lineHeight:"1.2",margin:"0 0 0.75rem",letterSpacing:"-0.01em"},
+    h2:{fontFamily:"'DM Serif Display',serif",fontSize:"22px",fontWeight:"400",color:"#e8f0e0",lineHeight:"1.3",margin:"0 0 0.5rem"},
+    sub:{fontSize:"14px",color:"#4a6a40",lineHeight:"1.7",margin:"0 0 1.5rem",fontWeight:"300"},
+    badge:{display:"inline-block",fontSize:"10px",letterSpacing:"0.1em",textTransform:"uppercase",color:"#00d4ff",background:"rgba(0,212,255,0.08)",border:"1px solid rgba(0,212,255,0.2)",borderRadius:"20px",padding:"4px 12px",marginBottom:"1.25rem"},
+    btn:{display:"inline-flex",alignItems:"center",gap:"8px",background:"#2a5a3a",color:"#a8d8b8",border:"1px solid #3a7a50",borderRadius:"9px",padding:"11px 24px",fontSize:"14px",cursor:"pointer",fontWeight:"500",transition:"all 0.15s"},
+    btnSm:{display:"inline-flex",alignItems:"center",gap:"6px",background:"transparent",color:"#3a5a30",border:"1px solid #152015",borderRadius:"8px",padding:"8px 14px",fontSize:"13px",cursor:"pointer"},
+    input:{width:"100%",background:"#060e06",border:"1px solid #152015",borderRadius:"9px",padding:"12px 14px",fontSize:"14px",color:"#c8d8c0",outline:"none",resize:"vertical",lineHeight:"1.7",boxSizing:"border-box"},
+    lbl:{fontSize:"11px",letterSpacing:"0.08em",textTransform:"uppercase",color:"#2a4020",display:"block",marginBottom:"8px"},
+    hr:{border:"none",borderTop:"1px solid #0f1a0f",margin:"1.5rem 0"},
+    sec:{background:"#060e06",border:"1px solid #0f1a0f",borderRadius:"10px",padding:"1.1rem",marginBottom:"10px"},
+  };
+
+  // ─── HEADER ────────────────────────────────────────────────
+  const Header = () => React.createElement("div",{style:S.header},
+    React.createElement("div",{style:{display:"flex",alignItems:"center",gap:"12px"}},
+      React.createElement(Logo,{size:34}),
+      React.createElement("div",null,
+        React.createElement("div",{style:{display:"flex",alignItems:"baseline",gap:"6px"}},
+          React.createElement("span",{style:{fontFamily:"'DM Serif Display',serif",fontSize:"19px",color:"#e8f0e0",letterSpacing:"-0.01em"}},"Post"),
+          React.createElement("span",{style:{fontSize:"14px",color:"#2a5a3a",fontWeight:"300"}},"&"),
+          React.createElement("span",{style:{fontFamily:"'DM Serif Display',serif",fontSize:"19px",color:"#4a9e6e",letterSpacing:"-0.01em"}},"Dose")
+        ),
+        React.createElement("span",{style:{fontSize:"10px",color:"#1a3a20",letterSpacing:"0.1em",textTransform:"uppercase"}},"Life Sciences LinkedIn Studio")
+      )
+    ),
+    step!=="welcome"&&React.createElement("button",{style:S.btnSm,onClick:reset},"✦ New post")
+  );
+
+  // ─── ADMIN PANEL ───────────────────────────────────────────
+  if(showAdmin){
+    const sessions = loadSessions();
+    const rated = sessions.filter(s=>s.rating>0);
+    const avgRating = rated.length>0?(rated.reduce((a,b)=>a+b.rating,0)/rated.length).toFixed(1):"—";
+    const bySector = INDUSTRIES.reduce((a,ind)=>{a[ind.label]=sessions.filter(s=>s.industry===ind.id).length;return a},{});
+    return React.createElement("div",{style:S.page},
+      React.createElement(Header),
+      React.createElement("div",{style:S.card},
+        React.createElement("div",{style:{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:"1.5rem"}},
+          React.createElement("div",{style:{...S.badge,background:"rgba(212,168,67,0.1)",color:"#d4a843",borderColor:"rgba(212,168,67,0.2)"}},"📊 Usage Analytics"),
+          React.createElement("button",{style:S.btnSm,onClick:()=>setShowAdmin(false)},"Close")
+        ),
+        React.createElement("div",{style:{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:"8px",marginBottom:"1rem"}},
+          [{label:"Total sessions",val:sessions.length},{label:"Avg rating",val:avgRating},{label:"Rated",val:rated.length}].map(item=>
+            React.createElement("div",{key:item.label,style:{...S.sec,textAlign:"center",marginBottom:0}},
+              React.createElement("div",{style:{fontSize:"24px",fontWeight:"300",color:"#e8f0e0"}},""+item.val),
+              React.createElement("div",{style:{fontSize:"11px",color:"#2a4020",marginTop:"2px"}},item.label)
+            )
+          )
+        ),
+        React.createElement("div",{style:{display:"grid",gridTemplateColumns:"1fr 1fr",gap:"8px",marginBottom:"1rem"}},
+          Object.entries(bySector).map(([label,count])=>
+            React.createElement("div",{key:label,style:{...S.sec,marginBottom:0,display:"flex",justifyContent:"space-between",alignItems:"center"}},
+              React.createElement("span",{style:{fontSize:"13px",color:"#5a8a50"}},""+label),
+              React.createElement("span",{style:{fontSize:"16px",fontWeight:"300",color:"#e8f0e0"}},""+count)
+            )
+          )
+        ),
+        sessions.length>0&&React.createElement("div",{style:{...S.sec,maxHeight:"320px",overflowY:"auto"}},
+          [...sessions].reverse().slice(0,50).map((s,i)=>
+            React.createElement("div",{key:i,style:{borderBottom:"1px solid #0f1a0f",paddingBottom:"8px",marginBottom:"8px"}},
+              React.createElement("div",{style:{display:"flex",justifyContent:"space-between",marginBottom:"2px"}},
+                React.createElement("span",{style:{fontSize:"11px",color:"#4a9e6e"}},s.style+" · "+s.industry),
+                React.createElement("span",{style:{fontSize:"10px",color:"#1a2a18"}},new Date(s.time).toLocaleDateString("en-IN",{day:"numeric",month:"short",hour:"2-digit",minute:"2-digit"}))
+              ),
+              React.createElement("div",{style:{fontSize:"12px",color:"#4a6a40",lineHeight:"1.5"}},s.topic),
+              s.rating>0&&React.createElement("span",{style:{fontSize:"11px",color:"#d4a843"}},"⭐ "+s.rating+"/10")
+            )
+          )
+        ),
+        sessions.length===0&&React.createElement("p",{style:{fontSize:"13px",color:"#2a4020"}},"No sessions recorded yet.")
+      )
+    );
+  }
+
+  // ─── NOT CONFIGURED ────────────────────────────────────────
+  if(notConfigured) return (
+    React.createElement("div",{style:S.page},
+      React.createElement(Header),
+      React.createElement("div",{style:S.card},
+        React.createElement("div",{style:S.badge},"⚙️ Setup required"),
+        React.createElement("h2",{style:{...S.h2,marginBottom:"1.5rem"}},"Add your free Gemini API key to activate"),
+        React.createElement("div",{style:{...S.sec,borderLeft:"3px solid #4a9e6e",borderRadius:"0 10px 10px 0"}},
+          ["Go to aistudio.google.com","Sign in with Google","Click Get API key → Create API key","Copy the key (starts with AIza...)","Open index.html in Notepad or TextEdit","Find: PASTE_YOUR_GEMINI_API_KEY_HERE","Replace with your key","Save and re-upload to GitHub"].map((s,i)=>
+            React.createElement("div",{key:i,style:{fontSize:"13px",color:"#5a8a50",lineHeight:"2",display:"flex",gap:"12px"}},
+              React.createElement("span",{style:{color:"#4a9e6e",fontWeight:"600",flexShrink:0}},`${i+1}.`),
+              React.createElement("span",null,s)
+            )
+          )
+        ),
+        React.createElement("p",{style:{fontSize:"12px",color:"#2a4020",marginTop:"1.25rem",lineHeight:"1.7"}},"✅ Free tier: 1,500 requests per day. No credit card needed.")
+      )
+    )
+  );
+
+  // ─── WELCOME ───────────────────────────────────────────────
+  if(step==="welcome") return (
+    React.createElement("div",{style:S.page},
+      React.createElement(Header),
+      React.createElement("div",{style:{...S.card,paddingBottom:"2.5rem"}},
+        React.createElement("div",{style:S.badge},"🧬 Life Sciences Content Intelligence"),
+        React.createElement("h1",{style:S.h1},"Write posts that life sciences leaders actually stop scrolling for."),
+        React.createElement("p",{style:S.sub},"Deep domain expertise across Pharmaceutical, MedTech, Biotech, and Digital Health. AI-powered post intelligence. No generic templates."),
+        React.createElement("div",{style:{display:"grid",gridTemplateColumns:"1fr 1fr",gap:"10px",marginBottom:"2rem"}},
+          INDUSTRIES.map(ind=>
+            React.createElement("div",{key:ind.id,onClick:()=>setIndustry(ind.id),
+              style:{background:industry===ind.id?`${ind.color}12`:"#060e06",border:`1px solid ${industry===ind.id?ind.color+"55":"#0f1a0f"}`,borderRadius:"12px",padding:"16px",cursor:"pointer",transition:"all 0.15s"}},
+              React.createElement("div",{style:{fontSize:"24px",marginBottom:"8px"}},ind.icon),
+              React.createElement("div",{style:{fontSize:"14px",fontWeight:"500",color:industry===ind.id?"#e8f0e0":"#5a7a50",marginBottom:"4px"}},ind.label),
+              React.createElement("span",{style:{fontSize:"10px",padding:"2px 8px",borderRadius:"10px",background:`${ind.color}15`,color:ind.color,border:`1px solid ${ind.color}25`}},ind.tag)
+            )
+          )
+        ),
+        React.createElement("button",{style:{...S.btn,fontSize:"15px",padding:"12px 28px"},onClick:()=>setStep("style")},"Start writing ✦"),
+        React.createElement("div",{style:{marginTop:"2.5rem",borderTop:"1px solid #0a1408",paddingTop:"1.25rem"}},
+          React.createElement("p",{style:{fontSize:"11px",color:"#1a2a18",textAlign:"center",lineHeight:"1.8",maxWidth:"480px",margin:"0 auto"}},"Your topic, feedback, and rating may be used by the prompt engineer to further improve this tool. Please do not share confidential company data or anything you are not comfortable sharing.")
+        )
+      ),
+      React.createElement("div",{style:{marginTop:"1rem"}},
+        React.createElement("span",{onClick:handleVersionClick,style:{fontSize:"10px",color:"#0d150d",cursor:"default",userSelect:"none"}},"v4.0")
+      )
+    )
+  );
+
+  // ─── STYLE ─────────────────────────────────────────────────
+  if(step==="style") return (
+    React.createElement("div",{style:S.page},
+      React.createElement(Header),
+      React.createElement("div",{style:S.card},
+        React.createElement("div",{style:{...S.badge,background:`${curInd.color}12`,color:curInd.color,borderColor:`${curInd.color}30`}},
+          curInd.icon+" "+curInd.label),
+        React.createElement("h2",{style:S.h2},"Choose your post structure"),
+        React.createElement("p",{style:S.sub},"Each produces a genuinely different format, opening style, and sentence rhythm."),
+        React.createElement("div",{style:{display:"grid",gridTemplateColumns:"1fr 1fr",gap:"10px",marginBottom:"1.75rem"}},
+          STYLES.map(s=>
+            React.createElement("div",{key:s.id,onClick:()=>setStyle(s.id),
+              style:{background:style===s.id?`${s.color}10`:"#060e06",border:`1px solid ${style===s.id?s.color+"55":"#0f1a0f"}`,borderRadius:"12px",padding:"14px 16px",cursor:"pointer",transition:"all 0.15s",gridColumn:s.id==="auto"?"span 2":"span 1"}},
+              React.createElement("div",{style:{display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:"5px"}},
+                React.createElement("span",{style:{fontSize:"14px",fontWeight:"500",color:style===s.id?"#e8f0e0":"#4a6a40"}},s.label),
+                React.createElement("span",{style:{fontSize:"10px",padding:"2px 8px",borderRadius:"10px",background:`${s.color}15`,color:s.color,border:`1px solid ${s.color}25`}},s.tag)
+              ),
+              React.createElement("div",{style:{fontSize:"12px",color:"#2a4020",lineHeight:"1.5"}},s.desc)
+            )
+          )
+        ),
+        React.createElement("div",{style:{display:"flex",justifyContent:"space-between"}},
+          React.createElement("button",{style:S.btnSm,onClick:()=>setStep("welcome")},"← Back"),
+          React.createElement("button",{style:S.btn,onClick:()=>setStep("topic")},"Next →")
+        )
+      )
+    )
+  );
+
+  // ─── TOPIC ─────────────────────────────────────────────────
+  if(step==="topic") return (
+    React.createElement("div",{style:S.page},
+      React.createElement(Header),
+      React.createElement("div",{style:S.card},
+        React.createElement("div",{style:{display:"flex",gap:"8px",marginBottom:"1.25rem",flexWrap:"wrap"}},
+          React.createElement("span",{style:{fontSize:"12px",color:curInd.color,background:`${curInd.color}12`,border:`1px solid ${curInd.color}30`,borderRadius:"20px",padding:"3px 12px"}},curInd.icon+" "+curInd.label),
+          React.createElement("span",{style:{fontSize:"12px",color:STYLES.find(s=>s.id===style)?.color,background:`${STYLES.find(s=>s.id===style)?.color}12`,border:`1px solid ${STYLES.find(s=>s.id===style)?.color}30`,borderRadius:"20px",padding:"3px 12px"}},STYLES.find(s=>s.id===style)?.label)
+        ),
+        React.createElement("h2",{style:S.h2},"What do you want to write about?"),
+        React.createElement("p",{style:S.sub},"Type your topic or pick a suggestion below."),
+
+        // Topic suggestions
+        React.createElement("div",{style:{marginBottom:"12px"}},
+          React.createElement("div",{style:{fontSize:"11px",letterSpacing:"0.08em",textTransform:"uppercase",color:"#2a4020",marginBottom:"8px"}},"💡 Suggested topics for "+curInd.label),
+          React.createElement("div",{style:{display:"flex",flexWrap:"wrap",gap:"6px"}},
+            suggestions.map((sug,i)=>{
+              const cleanSug = sug.replace(/[\u{1F300}-\u{1F9FF}]|[\u{2600}-\u{26FF}]|[\u{2700}-\u{27BF}]|[\u{1F000}-\u{1F02F}]|[\u{1F0A0}-\u{1F0FF}]|[\u{1F100}-\u{1F1FF}]|[\u{1F200}-\u{1F2FF}]|[\u{1F004}]|[\u{1F0CF}]/gu,"").trim();
+              return React.createElement("button",{key:i,onClick:()=>setTopic(cleanSug),
+                style:{fontSize:"12px",color:"#4a6a40",background:topic===cleanSug?`${curInd.color}12`:"#060e06",border:`1px solid ${topic===cleanSug?curInd.color+"44":"#0f1a0f"}`,borderRadius:"20px",padding:"5px 12px",cursor:"pointer",textAlign:"left",transition:"all 0.15s",lineHeight:"1.4"}},sug)
+            })
+          )
+        ),
+
+        React.createElement("label",{style:S.lbl},"Or write your own topic"),
+        React.createElement("textarea",{style:{...S.input,minHeight:"80px"},
+          placeholder:"e.g. CRM as a reporting system vs a decision system in pharma commercial...",
+          value:topic,onChange:e=>setTopic(e.target.value),rows:3}),
+        React.createElement("div",{style:{height:"1rem"}}),
+        React.createElement("label",{style:S.lbl},"Target audience (optional)"),
+        React.createElement("input",{style:{...S.input,height:"44px",resize:"none"},
+          placeholder:"e.g. CDOs, Commercial Leaders, Medical Affairs heads, Investors...",
+          value:audience,onChange:e=>setAudience(e.target.value)}),
+        React.createElement("hr",{style:S.hr}),
+        React.createElement("div",{style:{display:"flex",justifyContent:"space-between",alignItems:"center"}},
+          React.createElement("button",{style:S.btnSm,onClick:()=>setStep("style")},"← Back"),
+          React.createElement("button",{style:{...S.btn,opacity:topic.trim()?1:0.3,pointerEvents:topic.trim()?"all":"none"},onClick:generate},"Generate post ✦")
+        )
+      )
+    )
+  );
+
+  // ─── LOADING ───────────────────────────────────────────────
+  if(step==="gen") return (
+    React.createElement("div",{style:S.page},
+      React.createElement(Header),
+      React.createElement("div",{style:S.card},
+        React.createElement("div",{style:{display:"flex",flexDirection:"column",alignItems:"center",padding:"4rem 0",gap:"1.5rem"}},
+          React.createElement("div",{style:{position:"relative",width:"50px",height:"50px"}},
+            React.createElement("div",{style:{width:"50px",height:"50px",border:"1.5px solid #152015",borderTop:"1.5px solid #00d4ff",borderRadius:"50%",animation:"spin 1s linear infinite"}}),
+            React.createElement("div",{style:{position:"absolute",top:"50%",left:"50%",transform:"translate(-50%,-50%)"}},React.createElement(Logo,{size:22}))
+          ),
+          React.createElement("p",{style:{color:"#2a4020",fontSize:"13px",margin:0,letterSpacing:"0.02em",textAlign:"center"}},loadMsg)
+        )
+      )
+    )
+  );
+
+  // ─── RESULT ────────────────────────────────────────────────
+  if(step==="result") return (
+    React.createElement("div",{style:S.page},
+      React.createElement(Header),
+      React.createElement("div",{style:S.card},
+
+        // Top bar - copy + badges
+        React.createElement("div",{style:{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:"1rem"}},
+          React.createElement("div",{style:{display:"flex",gap:"8px",alignItems:"center",flexWrap:"wrap"}},
+            intel?.style&&React.createElement("span",{style:{fontSize:"11px",letterSpacing:"0.06em",textTransform:"uppercase",color:"#00d4ff",background:"rgba(0,212,255,0.07)",border:"1px solid rgba(0,212,255,0.15)",borderRadius:"20px",padding:"3px 10px"}},intel.style),
+            React.createElement("span",{style:{fontSize:"11px",letterSpacing:"0.06em",textTransform:"uppercase",color:curInd.color,background:`${curInd.color}10`,border:`1px solid ${curInd.color}20`,borderRadius:"20px",padding:"3px 10px"}},curInd.label)
+          ),
+          React.createElement("button",{style:{...S.btnSm,color:copiedT?"#4a9e6e":"#3a5a30"},onClick:()=>copy("t")},copiedT?"✓ Copied":"📋 Copy")
+        ),
+
+        // Rating at top
+        React.createElement(RatingWidget,{rating,hoverR,setHoverR,setRating:ratePost,label:"⭐ Rate this post"}),
+
+        // Post
+        React.createElement("div",{style:{background:"#060e06",border:"1px solid #0f1a0f",borderRadius:"12px",padding:"1.5rem",marginBottom:"8px"}},
+          React.createElement(MD,{text:post})
+        ),
+
+        // Copy bottom
+        React.createElement("div",{style:{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:"1rem"}},
+          React.createElement("span",null),
+          React.createElement("button",{style:{...S.btnSm,color:copiedB?"#4a9e6e":"#3a5a30"},onClick:()=>copy("b")},copiedB?"✓ Copied":"📋 Copy post")
+        ),
+
+        // Rating at bottom
+        React.createElement(RatingWidget,{rating,hoverR,setHoverR,setRating:ratePost,label:"⭐ How did this post land?"}),
+
+        // Intelligence
+        intel&&React.createElement("div",{style:{...S.sec,marginBottom:"10px"}},
+          React.createElement("div",{style:{...S.lbl,marginBottom:"12px"}},"⚡ Post Intelligence"),
+          React.createElement("div",{style:{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:"16px",marginBottom:"1rem"}},
+            [{l:"Hook",v:intel.hook_score},{l:"Engagement",v:intel.engagement},{l:"Domain depth",v:intel.depth_score}].map(item=>
+              React.createElement("div",{key:item.l},
+                React.createElement("div",{style:{fontSize:"11px",color:"#2a4020",marginBottom:"8px",textTransform:"uppercase",letterSpacing:"0.06em"}},item.l),
+                typeof item.v==="number"
+                  ?React.createElement(ScoreBar,{score:item.v})
+                  :React.createElement("span",{style:{fontSize:"14px",fontWeight:"500",color:item.v==="High"?"#4a9e6e":item.v==="Medium"?"#d4a843":"#3a5a30"}},item.v)
+              )
+            )
+          ),
+          intel.hook_note&&React.createElement("div",{style:{fontSize:"12px",color:"#3a5a30",lineHeight:"1.7",paddingTop:"10px",borderTop:"1px solid #0f1a0f",marginBottom:"10px"}},intel.hook_note),
+          intel.strongest_line&&React.createElement("div",{style:{background:"rgba(212,168,67,0.05)",borderLeft:"3px solid #d4a843",borderRadius:"0 8px 8px 0",padding:"10px 14px",marginBottom:"10px"}},
+            React.createElement("div",{style:{fontSize:"10px",color:"#5a4010",marginBottom:"5px",letterSpacing:"0.1em",textTransform:"uppercase"}},"Most shareable line ✨"),
+            React.createElement("div",{style:{fontSize:"13px",color:"#c8981a",fontStyle:"italic",lineHeight:"1.6"}},intel.strongest_line)
+          ),
+          React.createElement("div",{style:{display:"grid",gridTemplateColumns:"1fr 1fr",gap:"8px"}},
+            intel.one_fix&&React.createElement("div",{style:{fontSize:"12px",color:"#3a5a30",lineHeight:"1.6"}},React.createElement("span",{style:{color:"#d4a843"}},"🔧 One fix: "),intel.one_fix),
+            intel.best_time&&React.createElement("div",{style:{fontSize:"12px",color:"#2a4020",lineHeight:"1.6"}},React.createElement("span",{style:{color:"#2a4020"}},"🕐 Best time: "),intel.best_time)
+          )
+        ),
+
+        React.createElement("hr",{style:S.hr}),
+
+        React.createElement("label",{style:S.lbl},"✏️ Refine this post"),
+        React.createElement("textarea",{style:{...S.input,minHeight:"65px",marginBottom:"1rem"},
+          placeholder:"e.g. Opening feels generic. Make comparison sharper. Add coined phrase. Less formal. More data...",
+          value:feedback,onChange:e=>setFeedback(e.target.value),rows:2}),
+        React.createElement("div",{style:{display:"flex",gap:"8px",flexWrap:"wrap"}},
+          React.createElement("button",{
+            style:{...S.btn,opacity:feedback.trim()&&!refining?1:0.3,pointerEvents:feedback.trim()&&!refining?"all":"none"},
+            onClick:refine},refining?"Refining... ✨":"Refine post ✨"),
+          React.createElement("button",{style:S.btnSm,onClick:reset},"✦ New post")
+        )
+      )
+    )
+  );
+
+  return null;
+}
+
+ReactDOM.createRoot(document.getElementById("root")).render(React.createElement(App));
+</script>
+</body>
+</html>
